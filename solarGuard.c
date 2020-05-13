@@ -36,30 +36,12 @@
 
 #define MQTT_CLIENT_BROKER_IP_ADDR "fd00::1"
 
-/*---------------------------------------------------------------------------*/
-/*
- * MQTT Org ID.
- *
- * If it equals "quickstart", the client will connect without authentication.
- * In all other cases, the client will connect with authentication mode.
- *
- * In Watson mode, the username will be "use-token-auth". In non-Watson mode
- * the username will be MQTT_CLIENT_USERNAME.
- *
- * In all cases, the password will be MQTT_CLIENT_AUTH_TOKEN.
- */
-#ifdef MQTT_CLIENT_CONF_ORG_ID
-#define MQTT_CLIENT_ORG_ID MQTT_CLIENT_CONF_ORG_ID
-#else
 #define MQTT_CLIENT_ORG_ID "SolarGuard"
-#endif
-/*---------------------------------------------------------------------------*/
+
 /* MQTT token */
-#ifdef MQTT_CLIENT_CONF_AUTH_TOKEN
-#define MQTT_CLIENT_AUTH_TOKEN MQTT_CLIENT_CONF_AUTH_TOKEN
-#else
+
 #define MQTT_CLIENT_AUTH_TOKEN "AUTHTOKEN"
-#endif
+
 /*---------------------------------------------------------------------------*/
 
 #define ROOM "Solar"
@@ -77,7 +59,7 @@ static const char *broker_ip = MQTT_CLIENT_BROKER_IP_ADDR;
 #ifdef MQTT_CLIENT_CONF_STATUS_LED
 #define MQTT_CLIENT_STATUS_LED MQTT_CLIENT_CONF_STATUS_LED
 #else
-#define MQTT_CLIENT_STATUS_LED LEDS_BLUE
+#define MQTT_CLIENT_STATUS_LED LEDS_RED
 #endif
 /*---------------------------------------------------------------------------*/
 #ifdef MQTT_CLIENT_CONF_WITH_EXTENSIONS
@@ -691,10 +673,13 @@ state_machine(void)
       /* Connected. Publish */
         //printf("Connected\r\n");
       if(state == STATE_CONNECTED) {
+          leds_on(LEDS_BLUE); //
      //     printf("Callo subscribe\r\n");
         subscribe();
         state = STATE_PUBLISHING;
+
       } else {
+        leds_off(LEDS_BLUE); //
         leds_on(MQTT_CLIENT_STATUS_LED);
         ctimer_set(&ct, PUBLISH_LED_ON_DURATION, publish_led_off, NULL);
         LOG_DBG("Publishing\n");
@@ -720,6 +705,7 @@ state_machine(void)
     break;
   case STATE_DISCONNECTED:
     LOG_DBG("Disconnected\n");
+    leds_off(LEDS_BLUE); //
     if(connect_attempt < RECONNECT_ATTEMPTS ||
        RECONNECT_ATTEMPTS == RETRY_FOREVER) {
       /* Disconnect and backoff */
@@ -743,12 +729,13 @@ state_machine(void)
     }
     break;
   case STATE_CONFIG_ERROR:
+      leds_off(LEDS_BLUE); //
     /* Idle away. The only way out is a new config */
     LOG_ERR("Bad configuration.\n");
     return;
   case STATE_ERROR:
   default:
-    leds_on(MQTT_CLIENT_STATUS_LED);
+      leds_on(MQTT_CLIENT_STATUS_LED); //LEDS_RED
     /*
      * 'default' should never happen.
      *
@@ -763,13 +750,25 @@ state_machine(void)
   etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
 }
 
-int uartCB(unsigned char c){
-    uart0_write_byte(c);
+
+int handleInput(char* d){
+
+    if(strlen(d) < 4)
+        return 0;
+
+    char topic[40] = "fhem/solar/";
+
+
+    int pos = (int)(strchr(d, '\t') - d);
+    char* payload = d+1+pos;
+    char* cmd = d;
+    cmd[pos] = '\0';
+
+    strncat(topic, cmd, strlen(cmd));
+
+    publishStr(topic, payload);
     return 1;
 }
-
-
-
 
 //static uint16_t detectIssueCounter = 0;
 /*---------------------------------------------------------------------------*/
@@ -785,10 +784,7 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
   serial_line_init();
   update_config();
 
-  //uart0_set_callback ((uart0_input_fxn_t)uartCB);
 
-  //uart0_init();
-  uart0_write("test", 4);
 
   def_rt_rssi = 0x8000000;
   uip_icmp6_echo_reply_callback_add(&echo_reply_notification, echo_reply_handler);
@@ -800,9 +796,10 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
 
     PROCESS_YIELD();
 
-    if(ev == serial_line_event_message) {
-
-        printf("%s", (char*)data);
+    if(ev == serial_line_event_message && (state == STATE_CONNECTED || state == STATE_PUBLISHING)) {
+        handleInput((char*)data);
+    }
+    else {
     }
 
     if(ev == PROCESS_EVENT_TIMER && data == &cyclic_send_timer) {
@@ -815,9 +812,9 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
     }
 
     if(ev == PROCESS_EVENT_TIMER && data == &echo_request_timer) {
-      publishStr("fhem/SolarGuard/batteryCurrent", "myMessage");
+      //publishStr("fhem/SolarGuard/batteryCurrent", "myMessage");
       etimer_set(&echo_request_timer, (CLOCK_SECOND * 5));
-      uart0_write("test", 4);
+      //uart0_write("test", 4);
     }
   }
 

@@ -5,8 +5,8 @@ TARGET = simplelink
 BOARD = sensortag/cc1352r
 CFLAGS += -g
 
-CONTIKI = $(CONTIKI_ROOT)
-$(info $$(CONTIKI) is [$(CONTIKI)])
+CONTIKI = ${CONTIKI_ROOT}
+
 include $(CONTIKI)/Makefile.dir-variables
 MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/mqtt
 -include $(CONTIKI)/Makefile.identify-target
@@ -14,8 +14,5 @@ MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/mqtt
 MODULES_REL += arch/platform/$(TARGET)
 
 PLATFORMS_ONLY = simplelink
-
-
-
 
 include $(CONTIKI)/Makefile.include
