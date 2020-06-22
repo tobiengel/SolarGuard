@@ -14,5 +14,6 @@ MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/mqtt
 MODULES_REL += arch/platform/$(TARGET)
 
 PLATFORMS_ONLY = simplelink
-
+PROJECT_SOURCEFILES += helper.c
+solarGuard.$(TARGET): helper.o 
 include $(CONTIKI)/Makefile.include
